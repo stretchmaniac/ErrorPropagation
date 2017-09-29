@@ -9,7 +9,7 @@ vDist = None
 if os.path.exists('Physics 1401V Lab 1.3 data/v.txt'):
 	vDist = Distribution.fromFile('Physics 1401V Lab 1.3 data/v.txt')
 else:
-	d1 = Distribution.normalDistribution(.0245, .0012, 500)
+	d1 = Distribution.normalDistribution(.0245, .004, 500)
 	d2 = d1.copy()
 	d3 = d1.copy()
 
@@ -88,9 +88,15 @@ for row in data:
 	errorRow['theta'] = theta
 	
 	# theoretical error, given by range = (v cos(theta) / g) (v sin(theta) + sqrt(v^2 sin(theta)^2 + 2 g h))
+	
+	h_launch = Distribution.normalDistribution(*row['h_launch'], precision)
+	h_cork = Distribution.normalDistribution(*row['h_cork'], precision)
+	
+	h_height = Distribution.computeDistribution(h_launch, h_cork, lambda x,y: x-y)
+	
 	g = 9.8
 	theor1 = Distribution.computeDistribution(vDist, theta, lambda v,theta: v**2 * math.sin(theta)**2)
-	theor2 = Distribution.computeDistribution(theor1, h_ave, lambda th,h: math.sqrt(th + 2*g*h))
+	theor2 = Distribution.computeDistribution(theor1, h_height, lambda th,h: math.sqrt(th + 2*g*h))
 	theor3 = Distribution.computeDistribution(vDist, theta, lambda v, theta: v*math.sin(theta))
 	theor4 = Distribution.computeDistribution(theor2, theor3, lambda x,y: x+y)
 	theor5 = Distribution.computeDistribution(vDist, theta, lambda v, t: v*math.cos(t) / g)
@@ -101,8 +107,12 @@ for row in data:
 	errors.append(errorRow)
 	
 for e in errors:
-	print(e['L'].getErrorBounds(1))
-	print(e['theoretical_range'].getErrorBounds(1))
+	measuredError = e['L'].getErrorBounds(1)
+	expectedError = e['theoretical_range'].getErrorBounds(1)
+	thetaError = e['theta'].getErrorBounds(1)
+	def toExcel(error):
+		return str(error[2] - error[1])+'\t'+str(error[1] - error[0])
+	print(toExcel(measuredError)+'\t'+toExcel(expectedError)+'\t'+toExcel(thetaError))
 	
 	
 
