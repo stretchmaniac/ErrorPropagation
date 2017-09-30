@@ -114,13 +114,27 @@ class Distribution:
 		return distDict
 
 	@staticmethod
+	def evaluateDataSet(expr, distDictionary, resultFunc):
+		trials = 0
+		results = []
+		for key in distDictionary:
+			trials = len(distDictionary[key])
+			break
+		for row in range(trials):
+			rowDict = {}
+			for key in distDictionary:
+				rowDict[key] = distDictionary[key][row]
+			result = Distribution.evaluateExpression(expr, rowDict)
+			results.append(resultFunc(result))
+		return results
+
+	@staticmethod
 	def evaluateExpression(expr, distDictionary):
 		# evaluates an expression, like 'a**2 + b**2 - math.sin(c*a*b)', substituting
 		# keys of distDictionary (so 'a', 'b', and 'c') with the corresponding distribution values
+		# there cannot be a variable named reserved_key_name0 or 2 or 3...
 
 		rootNode = ast.parse(expr, mode='exec')
-		print(expr)
-		print(ast.dump(rootNode))
 		# starting at the root node, break the expression up recursively until every node (subset of expression)
 		# contains at most 2 variables
 
@@ -134,18 +148,91 @@ class Distribution:
 						variables.append(val[1])
 			return variables
 
-		def evaluate(node):
+		distributionVariableCount = 0
+
+		def evaluate(node, variableName):
 			variables = getVariables(node)
+			source = astor.to_source(node).strip()
 			if len(variables) == 1:
+				# save some time on simple evaluations:
+				if variables[0] == source:
+					return distDictionary[variables[0]]
 				# do a singleArgCompute on the single distribution
 				distribution = distDictionary[variables[0]]
-				funcString = 'f = lambda '+variables[0]+':'+astor.to_source(node)
-				print(funcString)
+				funcString = 'f = lambda '+variables[0]+':'+source
 				exec(funcString)
-				print(locals()['f'])
 				return distribution.singleArgCompute(locals()['f'])
+			elif len(variables) == 0:
+				raise Error('You appear to have no variable in this expression. How am I supposed to make a distribution out of it?')
+			elif len(variables) == 2:
+				funcString = 'f = lambda '+variables[0]+','+variables[1]+':'+source
+				exec(funcString)
+				return Distribution.computeDistribution(distDictionary[variables[0]], distDictionary[variables[1]], locals()['f'])
+			else:
+				# return the evaluation of the daughter nodes
+				# replace the nodes with
+				daughterNodeGenerator = ast.iter_child_nodes(node)
+				varNames = []
+				newSource = source
+				daughters = []
+				for daughter in daughterNodeGenerator:
+					daughters.append(daughter)
+				if len(daughters) == 1:
+					return evaluate(daughters[0], variableName)
+				if len(daughters) > 2:
+					daughters = [daughters[0], daughters[-1]]
 
-		return evaluate(rootNode)
+				# there are several possibilities:
+				#  1. if any daughter has no variables, then do a single arg compute with the other daughter
+				#  2. if no daughter has no variables, then do a full computeDistribution on the evaluation of the daughter
+
+				# sort daughters by variables
+				d0Vars = getVariables(daughters[0])
+				d1Vars = getVariables(daughters[1])
+
+				switched = False
+				if len(d0Vars) > len(d1Vars):
+					daughters = [daughters[1], daughters[0]]
+					temp = d1Vars
+					d1Vars = d0Vars
+					d0Vars = temp
+					switched = True
+
+				if len(d0Vars) == 0:
+					# replace the 2nd daughter with a new variable
+					replacementDist = evaluate(daughters[1], variableName+'0')
+					daughterSource = astor.to_source(daughters[1]).strip()
+					newVarName = variableName+'_0'
+					newSource = source.replace(daughterSource, newVarName)
+					distDictionary[newVarName] = replacementDist
+
+					funcString = 'f = lambda '+newVarName+':'+newSource
+					exec(funcString)
+					return replacementDist.singleArgCompute(locals()['f'])
+
+				# replace both daughters with new variables
+				rDist0 = evaluate(daughters[0], variableName+'1')
+				rDist1 = evaluate(daughters[1], variableName+'2')
+				dSource0 = astor.to_source(daughters[0]).strip()
+				dSource1 = astor.to_source(daughters[1]).strip()
+				vName0 = variableName+'_1'
+				vName1 = variableName+'_2'
+				# we need to replace in the correct order, from left to right
+				newSource = source
+				toReplace = ((dSource0, vName0), (dSource1, vName1))
+				if switched:
+					toReplace = ((dSource1, vName1), (dSource0, vName0))
+				for r in toReplace:
+					newSource = newSource.replace(r[0], r[1])
+
+				distDictionary[vName0] = rDist0
+				distDictionary[vName1] = rDist1
+
+				funcString = 'f = lambda '+vName0+','+vName1+':'+newSource
+				exec(funcString)
+				return Distribution.computeDistribution(rDist0, rDist1, locals()['f'])
+
+		return evaluate(rootNode, 'reserved_key_name')
 
 	@staticmethod
 	def computeDistribution(distA, distB, func):
@@ -218,7 +305,10 @@ class Distribution:
 		xMin = None
 		xMax = None
 		for seg in self.intervals:
-			newSeg = [[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]]
+			try:
+				newSeg = [[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]]
+			except:
+				continue
 			if newSeg[0][0] > newSeg[1][0]:
 				temp = newSeg[0]
 				newSeg[0] = newSeg[1]
@@ -493,12 +583,3 @@ class Distribution:
 
 	def show(self):
 		plt.show()
-
-result = Distribution.evaluateExpression('math.sqrt(a)', {
-	'a':Distribution.normalDistribution(2, .5, 2000),
-	'b':[],
-	'c':[]
-})
-
-result.draw()
-result.show()
