@@ -63,7 +63,7 @@ class Distribution:
 	def fromString(tableString, precision):
 		# same as Distribution.fromTable, but takes a string, like what would be copy-pasted
 		# out of excel. Specifically, it is tab separated columns and \n separated rows
-		table = [x for x in tableString.split('\n') if x != '']
+		table = [x.strip() for x in tableString.split('\n') if x.strip() != '']
 
 		table = list(map(lambda row: row.split('\t'), table))
 
@@ -99,32 +99,27 @@ class Distribution:
 			valueErrorPairs.append((valName, val[1], err[1]))
 
 		# now create the dictionary
-		distDict = {}
-		for pair in valueErrorPairs:
-			distDict[pair[0]] = []
+		rows = []
 
 		# now iterate through the rows, making the distributions as we go
 		for i in range(1, len(table)):
+			rowDict = {}
 			row = table[i]
 			for pair in valueErrorPairs:
 				val = row[pair[1]]
 				err = row[pair[2]]
-				distDict[pair[0]].append(Distribution.normalDistribution(val, err, precision))
+				rowDict[pair[0]] = Distribution.normalDistribution(val, err, precision)
 
-		return distDict
+			rows.append(rowDict)
+
+		return rows
 
 	@staticmethod
-	def evaluateDataSet(expr, distDictionary, resultFunc):
-		trials = 0
+	def evaluateDataSet(expr, distributionTable, resultFunc):
+		trials = len(distributionTable)
 		results = []
-		for key in distDictionary:
-			trials = len(distDictionary[key])
-			break
-		for row in range(trials):
-			rowDict = {}
-			for key in distDictionary:
-				rowDict[key] = distDictionary[key][row]
-			result = Distribution.evaluateExpression(expr, rowDict)
+		for row in distributionTable:
+			result = Distribution.evaluateExpression(expr, row)
 			results.append(resultFunc(result))
 		return results
 
@@ -150,9 +145,15 @@ class Distribution:
 
 		distributionVariableCount = 0
 
+		def astor_source(node):
+			res = astor.to_source(node, indent_with='').strip().replace('\n','')
+			while ' ' in res:
+				res = res.replace(' ','')
+			return res
+
 		def evaluate(node, variableName):
 			variables = getVariables(node)
-			source = astor.to_source(node).strip()
+			source = astor_source(node)
 			if len(variables) == 1:
 				# save some time on simple evaluations:
 				if variables[0] == source:
@@ -201,7 +202,7 @@ class Distribution:
 				if len(d0Vars) == 0:
 					# replace the 2nd daughter with a new variable
 					replacementDist = evaluate(daughters[1], variableName+'0')
-					daughterSource = astor.to_source(daughters[1]).strip()
+					daughterSource = astor_source(daughters[1])
 					newVarName = variableName+'_0'
 					newSource = source.replace(daughterSource, newVarName)
 					distDictionary[newVarName] = replacementDist
@@ -213,8 +214,8 @@ class Distribution:
 				# replace both daughters with new variables
 				rDist0 = evaluate(daughters[0], variableName+'1')
 				rDist1 = evaluate(daughters[1], variableName+'2')
-				dSource0 = astor.to_source(daughters[0]).strip()
-				dSource1 = astor.to_source(daughters[1]).strip()
+				dSource0 = astor_source(daughters[0])
+				dSource1 = astor_source(daughters[1])
 				vName0 = variableName+'_1'
 				vName1 = variableName+'_2'
 				# we need to replace in the correct order, from left to right
