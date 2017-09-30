@@ -2,7 +2,9 @@ import math
 from random import *
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from matplotlib import collections  as mc
+from matplotlib import collections as mc
+import ast
+import astor
 
 class Distribution:
 	def __init__(self, intervals):
@@ -110,6 +112,40 @@ class Distribution:
 				distDict[pair[0]].append(Distribution.normalDistribution(val, err, precision))
 
 		return distDict
+
+	@staticmethod
+	def evaluateExpression(expr, distDictionary):
+		# evaluates an expression, like 'a**2 + b**2 - math.sin(c*a*b)', substituting
+		# keys of distDictionary (so 'a', 'b', and 'c') with the corresponding distribution values
+
+		rootNode = ast.parse(expr, mode='exec')
+		print(expr)
+		print(ast.dump(rootNode))
+		# starting at the root node, break the expression up recursively until every node (subset of expression)
+		# contains at most 2 variables
+
+		def getVariables(node):
+			variables = []
+			children = ast.walk(node)
+			for child in children:
+				gen = ast.iter_fields(child)
+				for val in gen:
+					if val[0] == 'id' and val[1] in distDictionary and val[1] not in variables:
+						variables.append(val[1])
+			return variables
+
+		def evaluate(node):
+			variables = getVariables(node)
+			if len(variables) == 1:
+				# do a singleArgCompute on the single distribution
+				distribution = distDictionary[variables[0]]
+				funcString = 'f = lambda '+variables[0]+':'+astor.to_source(node)
+				print(funcString)
+				exec(funcString)
+				print(locals()['f'])
+				return distribution.singleArgCompute(locals()['f'])
+
+		return evaluate(rootNode)
 
 	@staticmethod
 	def computeDistribution(distA, distB, func):
@@ -457,3 +493,12 @@ class Distribution:
 
 	def show(self):
 		plt.show()
+
+result = Distribution.evaluateExpression('math.sqrt(a)', {
+	'a':Distribution.normalDistribution(2, .5, 2000),
+	'b':[],
+	'c':[]
+})
+
+result.draw()
+result.show()
