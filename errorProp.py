@@ -570,6 +570,31 @@ class Distribution:
 		file = open(fileName, 'r')
 		return Distribution(eval(file.read()))
 
+	# pts is in the form [[p1x, p1y], [p2x, p2y], ...]
+	@staticmethod
+	def linearRegression(pts):
+		# calculates a distribution representing the slope and y intercept of the calculated linear regression from the points
+		# slope = sum(1-n, (xi-x_bar)(yi-y_bar))/sum(1-n,(xi-x_bar)^2)
+		xs = [x[0] for x in pts]
+		ys = [x[1] for x in pts]
+		xBar = Distribution.foldIntoFirst(xs, lambda a,b: a+b)
+		yBar = Distribution.foldIntoFirst(ys, lambda a,b: a+b)
+		xBar = xBar.singleArgCompute(lambda x: x/len(pts))
+		yBar = yBar.singleArgCompute(lambda x: x/len(pts))
+
+		numerators = [Distribution.evaluateExpression('(xi-xbar)*(yi-ybar)', {'xi':j[0], 'xbar':xBar, 'ybar':yBar, 'yi':j[1]}) for j in pts]
+		numeratorTotal = Distribution.foldIntoFirst(numerators, lambda a,b: a+b)
+
+		denominators = [Distribution.evaluateExpression('(xi-xbar)**2',{'xi':j[0],'xbar':xBar}) for j in pts]
+		denominatorTotal = Distribution.foldIntoFirst(denominators, lambda a,b: a+b)
+
+		slope = Distribution.computeDistribution(numeratorTotal, denominatorTotal, lambda a,b: a/b)
+
+		# y int = y_bar - slope*x_bar
+		yInt = Distribution.evaluateExpression('ybar - slope*xbar',{'ybar':yBar,'slope':slope,'xbar':xBar})
+
+		return (slope, yInt)
+
 	# combines two lists of distributions elementwise according to func
 	@staticmethod
 	def distZip(dists1, dists2, func):
