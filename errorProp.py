@@ -115,7 +115,14 @@ class Distribution:
 		return rows
 
 	@staticmethod
-	def evaluateDataSet(expr, distributionTable, resultFunc):
+	def evaluateDataSet(expr, distributionTableOrig, resultFunc):
+		# copy distributionTableOrig so that it won't be mutated
+		distributionTable = []
+		for d in distributionTableOrig:
+			newDict = {}
+			for key in d:
+				newDict[key] = d[key].copy()
+			distributionTable.append(newDict)
 		trials = len(distributionTable)
 		results = []
 		for row in distributionTable:
