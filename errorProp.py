@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 import ast
 import astor
+import re
 
 class Distribution:
 	def __init__(self, intervals):
@@ -231,7 +232,8 @@ class Distribution:
 				if switched:
 					toReplace = ((dSource1, vName1), (dSource0, vName0))
 				for r in toReplace:
-					newSource = newSource.replace(r[0], r[1])
+					# consider r[0] = 'c' in the string c + tc. Make sure there are no letters around the match
+					newSource = re.sub(r'(^|[^a-zA-Z_0-9])'+re.escape(str(r[0]))+r'($|[^a-zA-Z_0-9])', r'\1'+str(r[1])+r'\2', newSource)
 
 				distDictionary[vName0] = rDist0
 				distDictionary[vName1] = rDist1
@@ -274,9 +276,6 @@ class Distribution:
 
 				interval = [[xs[lowestIndex], ys[lowestIndex]], [xs[highestIndex], ys[highestIndex]]]
 
-				if interval[1][0] - interval[0][0] == 0:
-					print(i1[0][0], i1[1][0], i2[0][0], i2[1][0], interval[0][0], interval[1][0])
-
 				for val in [interval[0][0], interval[1][0]]:
 					if minX == None or val < minX:
 						minX = val
@@ -296,12 +295,18 @@ class Distribution:
 		newXLow = intermediateDist.integrateTo(.0001)
 		newXHigh = intermediateDist.integrateTo(.9999)
 
-		condensed = Distribution.condenseIntervals(globalIntervals, globalIntervalLengths, newXLow, newXHigh, numPoints)
+		# if a distribution is too thin (e.g. 10e-12 kinda thin), then it's possible that integrateTo(.0001) > integrateTo(.9999),
+		# in which case I'm going to give up and just make a normal distribution centered around where we are looking at
+		newDist = None
+		if newXLow + 1e-10> newXHigh:
+			newDist = Distribution.normalDistribution(globalIntervals[len(globalIntervals) // 2][0][0], abs(globalIntervals[0][0][0] - globalIntervals[-1][0][0])/5, numPoints)
+		else:
+			condensed = Distribution.condenseIntervals(globalIntervals, globalIntervalLengths, newXLow, newXHigh, numPoints)
 
-		newDist = Distribution(condensed)
-		newDist.normalize()
+			newDist = Distribution(condensed)
+			newDist.normalize()
 
-		newDist.smooth(3)
+			newDist.smooth(3)
 
 		return newDist
 
@@ -353,12 +358,10 @@ class Distribution:
 		# condense into smaller set of intervals
 		finalIntervals = []
 		xDelta = (maxX - minX) / (numPoints)
-
 		x = minX
 		while x < maxX-xDelta/100:
 			finalIntervals.append([[x,0],[x + xDelta, 0]])
 			x += xDelta
-
 		def intervalIndex(xVal):
 			return math.floor((xVal - minX) / xDelta)
 
