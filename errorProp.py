@@ -233,8 +233,7 @@ class Distribution:
 					toReplace = ((dSource1, vName1), (dSource0, vName0))
 				for r in toReplace:
 					# consider r[0] = 'c' in the string c + tc. Make sure there are no letters around the match
-					newSource = re.sub(r'(^|[^a-zA-Z_0-9])'+re.escape(str(r[0]))+r'($|[^a-zA-Z_0-9])', r'\1'+str(r[1])+r'\2', newSource)
-
+					newSource = re.sub(r'(^|[^a-zA-Z_0-9])'+re.escape(str(r[0]))+r'($|[^a-zA-Z_0-9])', r'\1'+str(r[1])+r'\2', newSource, 1)
 				distDictionary[vName0] = rDist0
 				distDictionary[vName1] = rDist1
 
