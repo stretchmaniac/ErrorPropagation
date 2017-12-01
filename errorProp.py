@@ -25,10 +25,11 @@ class Distribution:
 		def zTrans(z):
 			return center + z*standardDev
 
-		prevPoint = [zTrans(-6), 0]
+		xStep = (zTrans(maxZ) - zTrans(minZ)) / (numPoints - 1)
+		prevPoint = [zTrans(-6)-xStep, 0]
 
 		for i in range(numPoints):
-			x = zTrans(minZ) + (i+random()/10-.05) * (zTrans(maxZ) - zTrans(minZ)) / (numPoints - 1)
+			x = zTrans(minZ) + (i+random()/10-.05) * xStep
 
 			# formula comes from wikipedia article on gaussian distribution
 			y = (1/math.sqrt(2*math.pi*varience))*math.e**(-(x-center)**2/(2*varience))
@@ -320,6 +321,7 @@ class Distribution:
 			try:
 				newSeg = [[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]]
 			except:
+				print([[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]])
 				continue
 			if newSeg[0][0] > newSeg[1][0]:
 				temp = newSeg[0]
