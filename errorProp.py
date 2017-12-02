@@ -555,6 +555,37 @@ class Distribution:
 		newSelf.numPoints = self.numPoints
 		return newSelf
 
+	def __mul__(self, other):
+		if isinstance(other,self.__class__):
+			return Distribution.computeDistribution(self, other, lambda x,y: x*y)
+		return self.singleArgCompute(lambda x: x*other)
+	def __rmul__(self, other):
+		return self*other
+	def __add__(self, other):
+		if isinstance(other, self.__class__):
+			return Distribution.computeDistribution(self, other, lambda x,y: x+y)
+		return self.singleArgCompute(lambda x: x+other)
+	def __radd__(self, other):
+		return self + other
+	def __sub__(self, other):
+		if isinstance(other,self.__class__):
+			return Distribution.computeDistribution(self, other, lambda x,y: x-y)
+		return self.singleArgCompute(lambda x: x-other)
+	def __rsub__(self, other):
+		return self - other
+	def __truediv__(self, other):
+		if isinstance(other, self.__class__):
+			return Distribution.computeDistribution(self, other, lambda x,y: x/y)
+		return self.singleArgCompute(lambda x: x/other)
+	def __rtruediv__(self, other):
+		return self / other
+	def __pow__(self, other):
+		if isinstance(other, self.__class__):
+			return Distribution.computeDistribution(self, other, lambda x,y: x**y)
+		return self.singleArgCompute(lambda x: x**other)
+	def __rpow__(self, other):
+		return self**other
+
 	# same as distZip(dists, copy(dists), func)
 	@staticmethod
 	def mapSelf(dists, func):
