@@ -585,6 +585,8 @@ class Distribution:
 		return self.singleArgCompute(lambda x: x**other)
 	def __rpow__(self, other):
 		return self**other
+	def __neg__(self):
+		return self.singleArgCompute(lambda x:-x)
 
 	# same as distZip(dists, copy(dists), func)
 	@staticmethod
