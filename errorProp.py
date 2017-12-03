@@ -321,7 +321,6 @@ class Distribution:
 			try:
 				newSeg = [[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]]
 			except:
-				print([[func(seg[0][0]), seg[0][1]], [func(seg[1][0]), seg[1][1]]])
 				continue
 			if newSeg[0][0] > newSeg[1][0]:
 				temp = newSeg[0]
@@ -572,13 +571,13 @@ class Distribution:
 			return Distribution.computeDistribution(self, other, lambda x,y: x-y)
 		return self.singleArgCompute(lambda x: x-other)
 	def __rsub__(self, other):
-		return self - other
+		return -self + other
 	def __truediv__(self, other):
 		if isinstance(other, self.__class__):
 			return Distribution.computeDistribution(self, other, lambda x,y: x/y)
 		return self.singleArgCompute(lambda x: x/other)
 	def __rtruediv__(self, other):
-		return self / other
+		return self**(-1) * other
 	def __pow__(self, other):
 		if isinstance(other, self.__class__):
 			return Distribution.computeDistribution(self, other, lambda x,y: x**y)
