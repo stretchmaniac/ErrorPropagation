@@ -652,3 +652,123 @@ class Distribution:
 
 	def show(self):
 		plt.show()
+
+	# converts all the ordinary Distributions to FastDistributions
+	@staticmethod
+	def toFastDists(dists):
+		newArr = []
+		# dists is an array of dictionaries
+		for el in dists:
+			newArr.append({})
+			# gets keys from el
+			for key in [*el]:
+				errorInterval = el[key].getErrorBounds(1)
+				newArr[-1][key] = FastDistribution(errorInterval[1], (errorInterval[1] - errorInterval[0] + errorInterval[2] - errorInterval[1])/2)
+		return newArr
+
+# FastDistribution uses the normal derivative propagation method:
+# 	delta f(x,y) = sqrt((d/dx f(x,y) delta x)^2 + (d/dy f(x,y)^2 delta y)^2
+class FastDistribution:
+	# model each distribution as a normal distribution
+	def __init__(self, center, stdv):
+		self.center = center
+		self.stdev = stdv
+
+	# we want the FastDistribution and normal Distribution objects to share many of the same
+	# functions (where applicable)
+	def singleArgCompute(self, func):
+		stdDev = self.stdev * FastDistribution.D(func, self.center)
+		# the center is shifted by the function
+		center = func(self.center)
+		return FastDistribution(center, stdDev)
+
+	@staticmethod
+	def computeDistribution(d1, d2, func):
+		newCenter = func(d1.center, d2.center)
+		newError = ((d1.stdev*(FastDistribution.D(lambda x:func(x, d2.center),d1.center)))**2 + (d2.stdev*(FastDistribution.D(lambda x:func(d1.center, x),d2.center)))**2)**(1/2)
+		return FastDistribution(newCenter, newError)
+
+	# numeric derivative of func with respect to its (one) variable evaluated at pt
+	@staticmethod
+	def D(func, pt):
+		# a symmetric derivative for kicks
+		# this is meant to be fast, so an arbitrary delta will probably be sufficient
+		delta = abs(pt / 1e8)
+		right = func(pt + delta)
+		left = func(pt - delta)
+		return (right - left) / (2*delta)
+
+	def copy(self):
+		return FastDistribution(self.center, self.stdev)
+
+	def getErrorBounds(self, stdDev):
+		return (self.center - self.stdev * stdDev, self.center, self.center + self.stdev * stdDev)
+
+	# copied from Distribution
+	@staticmethod
+	def foldIntoFirst(dists, func):
+		result = dists[0]
+		i = 1
+		while i < len(dists):
+			result = FastDistribution.computeDistribution(result, dists[i], func)
+			i += 1
+
+		return result
+
+	# mostly copied, with changes to reflect that I don't want to copy evaluateExpression over here
+	def linearRegression(pts):
+		# calculates a distribution representing the slope and y intercept of the calculated linear regression from the points
+		# slope = sum(1-n, (xi-x_bar)(yi-y_bar))/sum(1-n,(xi-x_bar)^2)
+		xs = [x[0] for x in pts]
+		ys = [x[1] for x in pts]
+		xBar = FastDistribution.foldIntoFirst(xs, lambda a,b: a+b)
+		yBar = FastDistribution.foldIntoFirst(ys, lambda a,b: a+b)
+		xBar = xBar.singleArgCompute(lambda x: x/len(pts))
+		yBar = yBar.singleArgCompute(lambda x: x/len(pts))
+
+		numerators = [(j[0]-xBar)*(j[1]-yBar) for j in pts]
+		numeratorTotal = FastDistribution.foldIntoFirst(numerators, lambda a,b: a+b)
+
+		denominators = [(j[0]-xBar)**2 for j in pts]
+		denominatorTotal = FastDistribution.foldIntoFirst(denominators, lambda a,b: a+b)
+
+		slope = FastDistribution.computeDistribution(numeratorTotal, denominatorTotal, lambda a,b: a/b)
+
+		# y int = y_bar - slope*x_bar
+		yInt = yBar - slope*xBar
+
+		return (slope, yInt)
+
+	# this is copied from distribution
+	def __mul__(self, other):
+		if isinstance(other,self.__class__):
+			return FastDistribution.computeDistribution(self, other, lambda x,y: x*y)
+		return self.singleArgCompute(lambda x: x*other)
+	def __rmul__(self, other):
+		return self*other
+	def __add__(self, other):
+		if isinstance(other, self.__class__):
+			return FastDistribution.computeDistribution(self, other, lambda x,y: x+y)
+		return self.singleArgCompute(lambda x: x+other)
+	def __radd__(self, other):
+		return self + other
+	def __sub__(self, other):
+		if isinstance(other,self.__class__):
+			return FastDistribution.computeDistribution(self, other, lambda x,y: x-y)
+		return self.singleArgCompute(lambda x: x-other)
+	def __rsub__(self, other):
+		return -self + other
+	def __truediv__(self, other):
+		if isinstance(other, self.__class__):
+			return FastDistribution.computeDistribution(self, other, lambda x,y: x/y)
+		return self.singleArgCompute(lambda x: x/other)
+	def __rtruediv__(self, other):
+		return self**(-1) * other
+	def __pow__(self, other):
+		if isinstance(other, self.__class__):
+			return FastDistribution.computeDistribution(self, other, lambda x,y: x**y)
+		return self.singleArgCompute(lambda x: x**other)
+	def __rpow__(self, other):
+		return self**other
+	def __neg__(self):
+		return self.singleArgCompute(lambda x:-x)
