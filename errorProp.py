@@ -694,6 +694,8 @@ class FastDistribution:
 		# a symmetric derivative for kicks
 		# this is meant to be fast, so an arbitrary delta will probably be sufficient
 		delta = abs(pt / 1e8)
+		if pt == 0:
+			delta = 10**(-8)
 		right = func(pt + delta)
 		left = func(pt - delta)
 		return (right - left) / (2*delta)
@@ -714,6 +716,17 @@ class FastDistribution:
 			i += 1
 
 		return result
+
+	def saveToFile(self, fileName):
+		file = open(fileName, 'w')
+		file.write(str(self.center)+','+str(self.stdev))
+		file.close()
+
+	@staticmethod
+	def fromFile(name):
+		file = open(fileName, 'r')
+		res = file.read().split(',')
+		return FastDistribution(float(res[0]), float(res[1]))
 
 	# mostly copied, with changes to reflect that I don't want to copy evaluateExpression over here
 	def linearRegression(pts):
