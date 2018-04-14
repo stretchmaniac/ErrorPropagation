@@ -653,6 +653,10 @@ class Distribution:
 	def show(self):
 		plt.show()
 
+	def toFastDist(self):
+		bounds = self.getErrorBounds(1)
+		return FastDistribution(bounds[1], (bounds[2] - bounds[0])/2)
+		
 	# converts all the ordinary Distributions to FastDistributions
 	@staticmethod
 	def toFastDists(dists):
