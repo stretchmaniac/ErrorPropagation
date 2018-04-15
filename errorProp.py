@@ -656,7 +656,7 @@ class Distribution:
 	def toFastDist(self):
 		bounds = self.getErrorBounds(1)
 		return FastDistribution(bounds[1], (bounds[2] - bounds[0])/2)
-		
+
 	# converts all the ordinary Distributions to FastDistributions
 	@staticmethod
 	def toFastDists(dists):
@@ -677,6 +677,9 @@ class FastDistribution:
 	def __init__(self, center, stdv):
 		self.center = center
 		self.stdev = stdv
+
+	def toDistribution(self, numPoints):
+		return Distribution.normalDistribution(self.center, self.stdev, numPoints)
 
 	# we want the FastDistribution and normal Distribution objects to share many of the same
 	# functions (where applicable)
