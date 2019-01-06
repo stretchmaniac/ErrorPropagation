@@ -409,12 +409,15 @@ class Distribution:
 			i[0][1] /= cumulativeArea
 			i[1][1] /= cumulativeArea
 
-	def draw(self):
-		lc = mc.LineCollection(self.intervals, linewidths=1)
+	@staticmethod
+	def draw(*distros):
 		fig, ax = plt.subplots()
-		ax.add_collection(lc)
+		for d in distros:
+			lc = mc.LineCollection(d.intervals, linewidths=1)
+			ax.add_collection(lc)
 		ax.autoscale()
 		ax.margins(.1)
+		plt.show()
 
 	def integrate(self, min, max):
 		return self.integrateLeft(max) - self.integrateLeft(min)
@@ -649,9 +652,6 @@ class Distribution:
 			res.append(Distribution.computeDistribution(dists1[i], dists2[i], func))
 
 		return res
-
-	def show(self):
-		plt.show()
 
 	def toFastDist(self):
 		bounds = self.getErrorBounds(1)
