@@ -4,7 +4,7 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 import ast
-import astor
+from . import astor
 import re
 
 class Distribution:
