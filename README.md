@@ -64,7 +64,7 @@ quotientYX = y / x # recall x is centered at zero
 # custom functions
 # ... of one variable 
 sinZ = z.singleArgCompute(lambda t: math.sin(t))
-# ... of two variablesErrorBounds
+# ... of two variables
 minXY = Distribution.computeDistribution(x, y, lambda a,b: min(a,b))
 
 # visualize some of our computations
